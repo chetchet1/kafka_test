@@ -17,7 +17,7 @@ pipeline {
                         bat """
                         helm repo add bitnami https://charts.bitnami.com/bitnami
                         helm repo update
-                        helm install kafka bitnami/kafka -f %VALUES_FILE_PATH%
+                        helm install kafka bitnami/kafka -f ${VALUES_FILE_PATH}
                         """
 
                         // PowerShell에서 LoadBalancer IP 가져오기
@@ -26,15 +26,19 @@ pipeline {
                             kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'
                         """, returnStdout: true).trim()
                         
-                        echo "LoadBalancer IP: ${loadBalancerIp}"
+                        if (loadBalancerIp) {
+                            echo "LoadBalancer IP: ${loadBalancerIp}"
+                        } else {
+                            error "LoadBalancer IP could not be retrieved."
+                        }
 
                         // values.yaml 파일에서 LoadBalancer IP 대체
                         powershell """
-                        (Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '%VALUES_FILE_PATH%'
+                        (Get-Content '$env:VALUES_FILE_PATH' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '$env:VALUES_FILE_PATH'
                         """
 
                         // 수정된 values.yaml 파일 출력
-                        powershell "Get-Content '%VALUES_FILE_PATH%'"
+                        powershell "Get-Content '$env:VALUES_FILE_PATH'"
                     }
                 }
             }

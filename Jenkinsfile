@@ -18,24 +18,32 @@ pipeline {
                             helm repo add bitnami https://charts.bitnami.com/bitnami
                             helm repo update
                             helm install kafka bitnami/kafka -f ${VALUES_FILE_PATH}
-                            timeout /t 120 >nul
                         """
+
+                        // 120초 대기
+                        bat "timeout /t 120"
 
                         // LoadBalancer IP를 가져오기 위한 PowerShell 실행
                         def loadBalancerIp = bat(script: "powershell -Command \"kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'\"", returnStdout: true).trim()
 
-                        // LoadBalancer IP를 파일에 저장
-                        writeFile(file: 'LoadBalancerIP.txt', text: loadBalancerIp)
-                        echo "LoadBalancer IP: ${loadBalancerIp}"
+                        // LoadBalancer IP가 정상적으로 가져와졌는지 확인
+                        if (loadBalancerIp) {
+                            echo "LoadBalancer IP: ${loadBalancerIp}"
 
-                        // values.yaml 파일의 LoadBalancer IP 업데이트
-                        powershell """
-                            (Get-Content '${VALUES_FILE_PATH}' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '${VALUES_FILE_PATH}'
-                        """
+                            // LoadBalancer IP를 파일에 저장
+                            writeFile(file: 'LoadBalancerIP.txt', text: loadBalancerIp)
 
-                        // values.yaml 파일 내용 확인
-                        echo "Updated values.yaml: "
-                        powershell "Get-Content '${VALUES_FILE_PATH}'"
+                            // values.yaml 파일의 LoadBalancer IP 업데이트
+                            powershell """
+                                (Get-Content '${VALUES_FILE_PATH}' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '${VALUES_FILE_PATH}'
+                            """
+
+                            // values.yaml 파일 내용 확인
+                            echo "Updated values.yaml: "
+                            powershell "Get-Content '${VALUES_FILE_PATH}'"
+                        } else {
+                            error "Failed to get LoadBalancer IP."
+                        }
                     }
                 }
             }

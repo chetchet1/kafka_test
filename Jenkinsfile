@@ -13,22 +13,29 @@ pipeline {
             steps {
                 script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CREDENTIAL_NAME]]) {
+                        // Helm 설치 및 대기
                         bat """
-                        helm repo add bitnami https://charts.bitnami.com/bitnami
-                        helm repo update
-                        
-                        helm install kafka bitnami/kafka -f %VALUES_FILE_PATH%
-
-                        timeout /t 120 >nul
-
-                        powershell -Command "kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'" > LoadBalancerIP.txt
-                        type LoadBalancerIP.txt
-                        set /p LOAD_BALANCER_IP=<LoadBalancerIP.txt
-
-                        powershell -Command "(Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${LOAD_BALANCER_IP}' | Set-Content '%VALUES_FILE_PATH%'"
-
-                        type %VALUES_FILE_PATH%
+                            helm repo add bitnami https://charts.bitnami.com/bitnami
+                            helm repo update
+                            helm install kafka bitnami/kafka -f ${VALUES_FILE_PATH}
+                            timeout /t 120 >nul
                         """
+
+                        // LoadBalancer IP를 가져오기 위한 PowerShell 실행
+                        def loadBalancerIp = bat(script: "powershell -Command \"kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'\"", returnStdout: true).trim()
+
+                        // LoadBalancer IP를 파일에 저장
+                        writeFile(file: 'LoadBalancerIP.txt', text: loadBalancerIp)
+                        echo "LoadBalancer IP: ${loadBalancerIp}"
+
+                        // values.yaml 파일의 LoadBalancer IP 업데이트
+                        powershell """
+                            (Get-Content '${VALUES_FILE_PATH}' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '${VALUES_FILE_PATH}'
+                        """
+
+                        // values.yaml 파일 내용 확인
+                        echo "Updated values.yaml: "
+                        powershell "Get-Content '${VALUES_FILE_PATH}'"
                     }
                 }
             }

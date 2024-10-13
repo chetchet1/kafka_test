@@ -15,7 +15,6 @@ pipeline {
                 script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CREDENTIAL_NAME]]) {
                         bat '''
-                        set KUBECONFIG=C:\\Windows\\system32\\config\\systemprofile\\.kube\\config
                         helm repo add bitnami https://charts.bitnami.com/bitnami
                         helm repo update
                         
@@ -25,8 +24,9 @@ pipeline {
                         REM Wait for Kafka service to be available
                         timeout /t 120 >nul
 
-                        REM Get LoadBalancer IP
-                        for /f "tokens=*" %%i in ('kubectl get svc kafka --output jsonpath="{.status.loadBalancer.ingress[0].ip}"') do set LOAD_BALANCER_IP=%%i
+                        REM Get LoadBalancer IP using PowerShell
+                        powershell -Command "$LOAD_BALANCER_IP = (kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'); $LOAD_BALANCER_IP" > LoadBalancerIP.txt
+                        set /p LOAD_BALANCER_IP=<LoadBalancerIP.txt
 
                         REM Update advertised listeners in values.yaml
                         powershell -Command "(Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${LOAD_BALANCER_IP}' | Set-Content '%VALUES_FILE_PATH%'"

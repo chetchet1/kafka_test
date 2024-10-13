@@ -25,14 +25,12 @@ pipeline {
                         timeout /t 120 >nul
 
                         REM Get LoadBalancer IP using PowerShell
-                        powershell -Command "$LOAD_BALANCER_IP = (kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'); $LOAD_BALANCER_IP" > LoadBalancerIP.txt
+                        powershell -Command "kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'" > LoadBalancerIP.txt
+                        type LoadBalancerIP.txt  REM 디버깅 출력: IP 주소를 출력합니다.
                         set /p LOAD_BALANCER_IP=<LoadBalancerIP.txt
 
                         REM Update advertised listeners in values.yaml
                         powershell -Command "(Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${LOAD_BALANCER_IP}' | Set-Content '%VALUES_FILE_PATH%'"
-
-                        REM Debug: Output the contents of values.yaml
-                        powershell -Command "Get-Content '%VALUES_FILE_PATH%'"
                         '''
                     }
                 }

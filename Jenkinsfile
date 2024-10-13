@@ -30,6 +30,9 @@ pipeline {
 
                         REM Update advertised listeners in values.yaml
                         powershell -Command "(Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${LOAD_BALANCER_IP}' | Set-Content '%VALUES_FILE_PATH%'"
+
+                        REM Debug: Output the contents of values.yaml
+                        powershell -Command "Get-Content '%VALUES_FILE_PATH%'"
                         '''
                     }
                 }

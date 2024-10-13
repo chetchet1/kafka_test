@@ -20,8 +20,8 @@ pipeline {
                             helm install kafka bitnami/kafka -f ${VALUES_FILE_PATH}
                         """
 
-                        // 120초 대기
-                        bat "timeout /t 120"
+                        // PowerShell에서 대기
+                        bat "powershell -Command \"Start-Sleep -Seconds 120\""
 
                         // LoadBalancer IP를 가져오기 위한 PowerShell 실행
                         def loadBalancerIp = bat(script: "powershell -Command \"kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'\"", returnStdout: true).trim()

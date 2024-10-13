@@ -13,7 +13,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CREDENTIAL_NAME]]) {
-                        bat '''
+                        bat """
                         helm repo add bitnami https://charts.bitnami.com/bitnami
                         helm repo update
                         
@@ -28,7 +28,7 @@ pipeline {
                         powershell -Command "(Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${LOAD_BALANCER_IP}' | Set-Content '%VALUES_FILE_PATH%'"
 
                         type %VALUES_FILE_PATH%
-                        '''
+                        """
                     }
                 }
             }

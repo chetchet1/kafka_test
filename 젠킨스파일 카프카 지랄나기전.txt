@@ -122,8 +122,7 @@ pipeline {
                         REM Install Kafka (with corrected settings)
                         helm install kafka bitnami/kafka -f E:/docker_Logi/infra_structure/values.yaml
 
-                        REM Wait for 2 minutes before checking Kafka pod status
-                        timeout /t 120 >nul
+                        bat "powershell -Command \"Start-Sleep -Seconds 120\""
 
                         REM Check Kafka pods status
                         kubectl get pods -l app.kubernetes.io/name=kafka

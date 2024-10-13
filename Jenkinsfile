@@ -13,20 +13,21 @@ pipeline {
             steps {
                 script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CREDENTIAL_NAME]]) {
-                        // Kafka 설치 및 LoadBalancer IP 가져오기
+                        // Kafka 설치
                         bat """
                         helm repo add bitnami https://charts.bitnami.com/bitnami
                         helm repo update
                         helm install kafka bitnami/kafka -f %VALUES_FILE_PATH%
-                        timeout /t 120 >nul
                         """
 
                         // PowerShell에서 LoadBalancer IP 가져오기
-                        def loadBalancerIp = powershell(script: """
-                            kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'
-                        """, returnStdout: true).trim()
-                        
-                        // LoadBalancer IP 출력
+                        def loadBalancerIp = ''
+                        powershell """
+                        Start-Sleep -Seconds 60  # 60초 대기
+                        $loadBalancerIp = kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'
+                        Write-Output $loadBalancerIp
+                        """  
+                        loadBalancerIp = powershell(script: "echo $loadBalancerIp", returnStdout: true).trim()
                         echo "LoadBalancer IP: ${loadBalancerIp}"
 
                         // values.yaml 파일에서 LoadBalancer IP 대체

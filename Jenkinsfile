@@ -9,69 +9,33 @@ pipeline {
     }
 
     stages {
-        // Apply Storage Class
-        stage('Apply Storage Class') {
-            steps {
-                script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-key']]) {
-                        bat '''
-                        kubectl apply -f E:/docker_Logi/infra_structure/storage-class.yaml
-                        '''
-                    }
-                }
-            }
-        }
-
-        // Apply Kafka PVC
-        stage('Apply Kafka PVC') {
-            steps {
-                script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-key']]) {
-                        bat '''
-                        kubectl apply -f E:/docker_Logi/infra_structure/kafka-pvc0.yaml
-		kubectl apply -f E:/docker_Logi/infra_structure/kafka-pvc1.yaml
-		kubectl apply -f E:/docker_Logi/infra_structure/kafka-pvc2.yaml
-                        '''
-                    }
-                }
-            }
-        }
-
         stage('Install Zookeeper and Kafka with Helm') {
             steps {
                 script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CREDENTIAL_NAME]]) {
-                        // Helm 설치 및 대기
+                        // Kafka 설치 및 LoadBalancer IP 가져오기
                         bat """
-                            helm repo add bitnami https://charts.bitnami.com/bitnami
-                            helm repo update
-                            helm install kafka bitnami/kafka -f ${VALUES_FILE_PATH}
+                        helm repo add bitnami https://charts.bitnami.com/bitnami
+                        helm repo update
+                        helm install kafka bitnami/kafka -f %VALUES_FILE_PATH%
+                        timeout /t 120 >nul
                         """
 
-                        // PowerShell에서 대기
-                        bat "powershell -Command \"Start-Sleep -Seconds 120\""
+                        // PowerShell에서 LoadBalancer IP 가져오기
+                        def loadBalancerIp = powershell(script: """
+                            kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'
+                        """, returnStdout: true).trim()
+                        
+                        // LoadBalancer IP 출력
+                        echo "LoadBalancer IP: ${loadBalancerIp}"
 
-                        // LoadBalancer IP를 가져오기 위한 PowerShell 실행
-                        def loadBalancerIp = bat(script: "powershell -Command \"kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'\"", returnStdout: true).trim()
+                        // values.yaml 파일에서 LoadBalancer IP 대체
+                        powershell """
+                        (Get-Content '%VALUES_FILE_PATH%' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '%VALUES_FILE_PATH%'
+                        """
 
-                        // LoadBalancer IP가 정상적으로 가져와졌는지 확인
-                        if (loadBalancerIp) {
-                            echo "LoadBalancer IP: ${loadBalancerIp}"
-
-                            // LoadBalancer IP를 파일에 저장
-                            writeFile(file: 'LoadBalancerIP.txt', text: loadBalancerIp)
-
-                            // values.yaml 파일의 LoadBalancer IP 업데이트
-                            powershell """
-                                (Get-Content '${VALUES_FILE_PATH}' -Raw) -replace '<LoadBalancer-IP>', '${loadBalancerIp}' | Set-Content '${VALUES_FILE_PATH}'
-                            """
-
-                            // values.yaml 파일 내용 확인
-                            echo "Updated values.yaml: "
-                            powershell "Get-Content '${VALUES_FILE_PATH}'"
-                        } else {
-                            error "Failed to get LoadBalancer IP."
-                        }
+                        // 수정된 values.yaml 파일 출력
+                        powershell "Get-Content '%VALUES_FILE_PATH%'"
                     }
                 }
             }

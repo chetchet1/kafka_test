@@ -21,13 +21,11 @@ pipeline {
                         """
 
                         // PowerShell에서 LoadBalancer IP 가져오기
-                        def loadBalancerIp = ''
-                        powershell """
-                        Start-Sleep -Seconds 60  # 60초 대기
-                        $loadBalancerIp = kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'
-                        Write-Output $loadBalancerIp
-                        """  
-                        loadBalancerIp = powershell(script: "echo $loadBalancerIp", returnStdout: true).trim()
+                        def loadBalancerIp = powershell(script: """
+                            Start-Sleep -Seconds 60  # 60초 대기
+                            kubectl get svc kafka --output jsonpath='{.status.loadBalancer.ingress[0].ip}'
+                        """, returnStdout: true).trim()
+                        
                         echo "LoadBalancer IP: ${loadBalancerIp}"
 
                         // values.yaml 파일에서 LoadBalancer IP 대체
